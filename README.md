@@ -40,7 +40,7 @@ cd SkillNet-smart_contract
   git checkout -b feature/<Issue title>
 ```
 
-### 5. Make Changes and Commit
+### 4. Make Changes and Commit
 
 - Implement your changes.
 - Test your changes thoroughly.
@@ -51,14 +51,14 @@ cd SkillNet-smart_contract
    git commit -m "Issue Title"
 ```
 
-### 6. Push Changes
+### 5. Push Changes
  - Push your branch to your forked repository:
 
 ```bash
    git push origin <Issue Title>
 ```
 
-### 7. Create a Pull Request (PR)
+### 6. Create a Pull Request (PR)
 
 - Click on Pull Requests and select New Pull Request.
 - Provide a clear and concise title and description for your PR.

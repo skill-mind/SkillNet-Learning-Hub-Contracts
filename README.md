@@ -32,15 +32,26 @@ git clone https://github.com/<your-username>/SkillNet-smart_contract.git
 cd SkillNet-smart_contract
 ```
 
+### 3. Set Up the Project
+**Prerequisites:**
 
-### 3. Create a New Branch
+- Node.js (v16.x or above)
+- npm 
+
+**Install Dependencies:**
+
+```bash
+  npm install
+```
+
+### 4. Create a New Branch
 
 **Create a branch for your feature or bug fix:**
 ```bash
   git checkout -b feature/<Issue title>
 ```
 
-### 4. Make Changes and Commit
+### 5. Make Changes and Commit
 
 - Implement your changes.
 - Test your changes thoroughly.
@@ -51,14 +62,14 @@ cd SkillNet-smart_contract
    git commit -m "Issue Title"
 ```
 
-### 5. Push Changes
+### 6. Push Changes
  - Push your branch to your forked repository:
 
 ```bash
    git push origin <Issue Title>
 ```
 
-### 6. Create a Pull Request (PR)
+### 7. Create a Pull Request (PR)
 
 - Click on Pull Requests and select New Pull Request.
 - Provide a clear and concise title and description for your PR.

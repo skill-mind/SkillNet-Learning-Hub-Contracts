@@ -6,7 +6,7 @@ pub mod SkillNet {
         ContractAddress, get_caller_address, get_block_timestamp, storage::Map,
         storage::StoragePointerWriteAccess, storage::StoragePointerReadAccess,
     };
-    use crate::base::types::{Course, CourseMetadata, StudentCourses, TutorCourses};
+    use crate::types::{Course, CourseMetadata, StudentCourses, TutorCourses};
     use crate::interfaces::ISkillNet::ISkillNet;
 
 
@@ -85,9 +85,8 @@ pub mod SkillNet {
             // Validate input parameters
             assert!(title != 0, "Course title cannot be empty");
             assert!(description != 0, "Course description cannot be empty");
-            if !is_free {
-                assert!(price > 0, "Paid courses must have a price greater than zero");
-            }
+            assert!(is_free || price > 0, "Paid courses must have a price greater than zero");
+
         
             // Get the current course ID
             let course_id = self.next_course_id.read(); // Use it before incrementing
@@ -149,14 +148,18 @@ pub mod SkillNet {
             true
         }
 
-        // fn get_student_courses(self: @ContractState, student: ContractAddress) -> StudentCourses;
+        // fn get_student_courses(self: @ContractState, student: ContractAddress) -> StudentCourses{
 
-        // Tutor Management
-        // fn get_tutor_courses(self: @ContractState, tutor: ContractAddress) -> TutorCourses
+        // }
 
-        fn get_tutor_revenue(self: @ContractState, tutor: ContractAddress) -> u256 {
-            100
-        }
+        // // Tutor Management
+        // fn get_tutor_courses(self: @ContractState, tutor: ContractAddress) -> TutorCourses{
+
+        // }
+
+        // fn get_tutor_revenue(self: @ContractState, tutor: ContractAddress) -> u256 {
+        //     100
+        // }
 
         // NFT Management
         fn mint_completion_nft(
@@ -226,5 +229,7 @@ pub mod SkillNet {
         fn get_skillnet_wallet(self: @ContractState) -> ContractAddress {
             self.skillnet_wallet.read()
         }
+
+        
     }
 }

@@ -1,7 +1,7 @@
 use snforge_std::{declare, ContractClassTrait, DeclareResultTrait};
 use snforge_std::{cheat_caller_address, CheatSpan};
 use starknet::{ContractAddress, contract_address_const};
-use contract::interfaces::ISkillNet::{ISkillNetDispatcher, ISkillNetDispatcherTrait};
+use skillnet_contract::interfaces::ISkillNet::{ISkillNetDispatcher, ISkillNetDispatcherTrait};
 
 
 fn setup() -> (

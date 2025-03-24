@@ -1,13 +1,16 @@
 #[starknet::contract]
 pub mod SkillNet {
-    use starknet::storage::StorageMapWriteAccess;
-    use starknet::storage::StorageMapReadAccess;
-    use starknet::{
-        ContractAddress, get_caller_address, get_block_timestamp, storage::Map,
-        storage::StoragePointerWriteAccess, storage::StoragePointerReadAccess,
+    use starknet::storage::{
+        Map, MutableVecTrait, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
+        StoragePointerReadAccess, StoragePointerWriteAccess, Vec, VecTrait,
     };
-    use crate::types::{Course, CourseMetadata, StudentCourses, TutorCourses};
+    use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
+    use crate::errors::{
+        COURSE_IS_FREE, COURSE_NOT_FOUND, FEE_TRANSFER_FAILED, INSUFFICIENT_PAYMENT, PAYMENT_FAILED,
+        TUTOR_PAYMENT_FAILED, USER_ALREADY_ENROLLED,
+    };
     use crate::interfaces::ISkillNet::ISkillNet;
+    use crate::types::{Course, CourseMetadata, StudentCourses, TutorCourses};
 
 
     #[storage]
@@ -36,8 +39,8 @@ pub mod SkillNet {
         total_tutors: u256,
         total_revenue: u256,
         // students are mapped to the course_id of the Course they are taking
-        students_taking_course: Map<ContractAddress, Map<u256, bool>>,
-        students_completed_course: Map<ContractAddress, Map<u256, bool>>,
+        enrollments: Map<ContractAddress, Map<u256, bool>>,
+        completions: Map<ContractAddress, Map<u256, bool>>,
         course_tags: Map<u256, Array<felt252>>,
     }
 
@@ -77,20 +80,16 @@ pub mod SkillNet {
             tags: felt252,
         ) -> u256 {
             // Ensure only the admin can create courses
-            assert!(
-                self.admin.read() == get_caller_address(),
-                "Not Admin",
-            );
-        
+            assert!(self.admin.read() == get_caller_address(), "Not Admin");
+
             // Validate input parameters
             assert!(title != 0, "Course title cannot be empty");
             assert!(description != 0, "Course description cannot be empty");
             assert!(is_free || price > 0, "Paid courses must have a price greater than zero");
 
-        
             // Get the current course ID
             let course_id = self.next_course_id.read(); // Use it before incrementing
-        
+
             // Create a new course struct
             let new_course = Course {
                 id: course_id,
@@ -104,16 +103,19 @@ pub mod SkillNet {
                 updated_at: get_block_timestamp(),
                 students_id: 0,
             };
-        
+
             // Store the course in the courses map
             self.courses.write(course_id, new_course);
-        
+
             // Increment course ID and update storage **after** using it
             self.next_course_id.write(course_id + 1);
-        
+
+            let total_course = self.total_courses.read();
+            self.total_courses.write(total_course + 1);
+
             course_id
         }
-        
+
 
         fn get_course(self: @ContractState, course_id: u256) -> Course {
             // Retrieve and return the course
@@ -139,6 +141,28 @@ pub mod SkillNet {
         fn enroll_course(
             ref self: ContractState, course_id: u256, student: ContractAddress,
         ) -> bool {
+            // Check if course exists
+            assert(self.courses.read(course_id).id == course_id, COURSE_NOT_FOUND);
+
+            // Check if student is already enrolled
+            let is_enrolled = self.enrollments.entry(student).entry(course_id).read();
+            assert(!is_enrolled, USER_ALREADY_ENROLLED);
+
+            let mut course = self.courses.read(course_id);
+            // PROCESS PAYMENT FOR PAID COURSES
+            if !course.is_free {
+                let payment_success = self.process_course_payment(course_id, student, course.price);
+                assert(payment_success, PAYMENT_FAILED);
+            }
+            self.total_students.write(self.total_students.read() + 1);
+
+            // Update course student count
+            course.students_id += 1;
+            self.courses.write(course_id, course);
+
+            // Mark student as taking this course
+            self.enrollments.entry(student).entry(course_id).write(true);
+
             true
         }
 
@@ -174,6 +198,31 @@ pub mod SkillNet {
         fn process_course_payment(
             ref self: ContractState, course_id: u256, student: ContractAddress, amount: u256,
         ) -> bool {
+            // Verify course exists and get details
+            let course = self.courses.read(course_id);
+            assert(course.id == course_id, COURSE_NOT_FOUND);
+            assert(!course.is_free, COURSE_IS_FREE);
+            assert(amount >= course.price, INSUFFICIENT_PAYMENT);
+
+            // Calculate protocol fee and tutor amount
+            let fee_amount = amount * self.protocol_fee.read() / 10000;
+            let tutor_amount = amount - fee_amount;
+
+            // Get payment contract and process transfers
+            let _payment_contract = self.payment_contract.read();
+            let skillnet_wallet = self.skillnet_wallet.read();
+
+            // Transfer fee to protocol wallet
+            let fee_success = self.process_payment(student, skillnet_wallet, fee_amount);
+            assert(fee_success, FEE_TRANSFER_FAILED);
+
+            // Transfer remainder to tutor
+            let tutor_success = self.process_payment(student, course.tutor, tutor_amount);
+            assert(tutor_success, TUTOR_PAYMENT_FAILED);
+
+            // Update revenue stats
+            self.total_revenue.write(self.total_revenue.read() + amount);
+
             true
         }
 
@@ -229,7 +278,5 @@ pub mod SkillNet {
         fn get_skillnet_wallet(self: @ContractState) -> ContractAddress {
             self.skillnet_wallet.read()
         }
-
-        
     }
 }

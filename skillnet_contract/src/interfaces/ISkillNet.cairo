@@ -1,5 +1,5 @@
 use starknet::ContractAddress;
-use crate::types::{Course, StudentCourses, TutorCourses, CourseMetadata};
+use crate::types::{Course, CourseMetadata, StudentCourses, TutorCourses};
 
 #[starknet::interface]
 pub trait ISkillNet<TContractState> {
@@ -39,25 +39,17 @@ pub trait ISkillNet<TContractState> {
 
     // NFT Management
     fn mint_completion_nft(
-        ref self: TContractState,
-        course_id: u256,
-        student: ContractAddress,
+        ref self: TContractState, course_id: u256, student: ContractAddress,
     ) -> u256;
 
     // fn get_student_nfts(self: @TContractState, student: ContractAddress) -> Array<u256>;
 
     fn mint(
-        ref self: TContractState,
-        to: ContractAddress,
-        course_id: u256,
-        metadata: CourseMetadata,
+        ref self: TContractState, to: ContractAddress, course_id: u256, metadata: CourseMetadata,
     ) -> u256;
 
     fn transfer(
-        ref self: TContractState,
-        from: ContractAddress,
-        to: ContractAddress,
-        token_id: u256,
+        ref self: TContractState, from: ContractAddress, to: ContractAddress, token_id: u256,
     ) -> bool;
 
     fn owner_of(self: @TContractState, token_id: u256) -> ContractAddress;
@@ -66,23 +58,15 @@ pub trait ISkillNet<TContractState> {
 
     // Payment Management
     fn process_course_payment(
-        ref self: TContractState,
-        course_id: u256,
-        student: ContractAddress,
-        amount: u256,
+        ref self: TContractState, course_id: u256, student: ContractAddress, amount: u256,
     ) -> bool;
 
     fn withdraw_tutor_revenue(
-        ref self: TContractState,
-        tutor: ContractAddress,
-        amount: u256,
+        ref self: TContractState, tutor: ContractAddress, amount: u256,
     ) -> bool;
 
     fn process_payment(
-        ref self: TContractState,
-        from: ContractAddress,
-        to: ContractAddress,
-        amount: u256,
+        ref self: TContractState, from: ContractAddress, to: ContractAddress, amount: u256,
     ) -> bool;
 
     fn withdraw_funds(ref self: TContractState, account: ContractAddress, amount: u256) -> bool;

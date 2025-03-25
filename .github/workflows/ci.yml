@@ -1,37 +1,33 @@
-name: CI Pipeline
+name: Build and Test
 
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+on: [push, pull_request]
+permissions: read-all
 
 jobs:
-  check:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
       - uses: software-mansion/setup-scarb@v1
         with:
-          scarb-version: "2.10.1"  # Latest version
-      
+          scarb-version: 2.10.1
+      - name: Check cairo format
+        working-directory: skillnet_contract
+        run: scarb fmt --check
+      - name: Build cairo programs
+        working-directory: skillnet_contract
+        run: scarb build
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: software-mansion/setup-scarb@v1
+        with:
+          scarb-version: 2.10.1
       - uses: foundry-rs/setup-snfoundry@v3
         with:
-          starknet-foundry-version: "0.38.0"  # Latest stable version
-      
-      - name: Check Versions
-        run: |
-          scarb --version
-          snforge -V
-      
-      - name: Format Check
-        run: scarb fmt --check
-      
-      - name: Run Tests
-        run: scarb test
-      
-      - name: Build Project
-        run: scarb build
+          starknet-foundry-version: 0.38.0
+      - name: Run cairo tests
+        working-directory: skillnet_contract
+        run: snforge test

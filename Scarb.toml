@@ -10,7 +10,7 @@ starknet = "^2.9.4"
 
 [dev-dependencies]
 snforge_std = "0.38.0"
-assert_macros = "2.11.2"
+assert_macros = "^2.9.4"
 
 [[target.starknet-contract]]
 sierra = true

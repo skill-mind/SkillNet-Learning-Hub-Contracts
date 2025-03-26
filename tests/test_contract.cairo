@@ -1,7 +1,6 @@
-use snforge_std::{declare, ContractClassTrait, DeclareResultTrait};
-use snforge_std::{cheat_caller_address, CheatSpan};
-use starknet::{ContractAddress, contract_address_const};
 use skillnet_contract::interfaces::ISkillNet::{ISkillNetDispatcher, ISkillNetDispatcherTrait};
+use snforge_std::{CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare};
+use starknet::{ContractAddress, contract_address_const};
 
 
 fn setup() -> (
@@ -213,4 +212,85 @@ fn test_course_data_persistence() {
     assert(course.tutor == admin_address, 'Tutor address mismatch');
 }
 
+#[test]
+fn test_enroll_course() {
+    let (contract_address, admin_address, _, _, _) = setup();
+    let contract = ISkillNetDispatcher { contract_address };
+
+    cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
+
+    let course_id = contract.create_course(23454, 54133, 100, false, 03485);
+    let student: ContractAddress = contract_address_const::<'student'>();
+
+    let result = contract.enroll_course(course_id, student);
+    assert!(result, "Enrollment failed");
+}
+
+#[test]
+#[should_panic(expected: 'Course not found')]
+fn test_should_fail_to_enroll_course_with_wrong_course_id() {
+    let (contract_address, admin_address, _, _, _) = setup();
+    let contract = ISkillNetDispatcher { contract_address };
+
+    cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
+
+    let course_id = contract.create_course(23454, 54133, 100, false, 03485);
+    let student: ContractAddress = contract_address_const::<'student'>();
+
+    contract.enroll_course(course_id + 1, student);
+}
+
+#[test]
+#[should_panic(expected: 'User already enrolled')]
+fn test_should_fail_to_enroll_course_when_user_enrolled() {
+    let (contract_address, admin_address, _, _, _) = setup();
+    let contract = ISkillNetDispatcher { contract_address };
+
+    cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
+
+    let course_id = contract.create_course(23454, 54133, 100, false, 03485);
+    let student: ContractAddress = contract_address_const::<'student'>();
+
+    contract.enroll_course(course_id, student);
+    contract.enroll_course(course_id, student);
+}
+
+#[test]
+#[should_panic(expected: 'Course not found')]
+fn test_should_fail_to_pay_for_course_when_course_id_is_not_found() {
+    let (contract_address, admin_address, _, _, _) = setup();
+    let contract = ISkillNetDispatcher { contract_address };
+
+    cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
+
+    let student: ContractAddress = contract_address_const::<'student'>();
+
+    contract.process_course_payment(1, student, 1000);
+}
+
+#[test]
+#[should_panic(expected: 'Course is free')]
+fn test_should_fail_payment_when_course_is_free() {
+    let (contract_address, admin_address, _, _, _) = setup();
+    let contract = ISkillNetDispatcher { contract_address };
+
+    cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
+
+    let course_id = contract.create_course(23454, 54133, 0, true, 03485);
+    let student: ContractAddress = contract_address_const::<'student'>();
+    contract.process_course_payment(course_id, student, 1000);
+}
+
+#[test]
+#[should_panic(expected: 'Insufficient payment')]
+fn test_should_fail_payment_when_price_greater_than_amount() {
+    let (contract_address, admin_address, _, _, _) = setup();
+    let contract = ISkillNetDispatcher { contract_address };
+
+    cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
+
+    let course_id = contract.create_course(23454, 54133, 100000, false, 03485);
+    let student: ContractAddress = contract_address_const::<'student'>();
+    contract.process_course_payment(course_id, student, 100);
+}
 

@@ -85,12 +85,21 @@ pub mod SkillNet {
             // Validate input parameters
             assert!(title != 0, "Course title cannot be empty");
             assert!(description != 0, "Course description cannot be empty");
-            assert!(is_free || price > 0, "Paid courses must have a price greater than zero");
 
-            // Get the current course ID
-            let course_id = self.next_course_id.read(); // Use it before incrementing
+            let tutor = get_caller_address();
+            let course_id = self.next_course_id.read();
 
-            // Create a new course struct
+            // If course is free, charge tutor a fixed fee
+            if is_free {
+                let free_course_fee = 100_u256; // Define your fixed fee for free courses
+                let payment_success = self
+                    .process_payment(tutor, self.skillnet_wallet.read(), free_course_fee);
+                assert(payment_success, PAYMENT_FAILED);
+                self.total_revenue.write(self.total_revenue.read() + free_course_fee);
+            } else {
+                assert!(price > 0, "Paid courses must have a price greater than zero");
+            }
+
             let new_course = Course {
                 id: course_id,
                 title,
@@ -109,9 +118,7 @@ pub mod SkillNet {
 
             // Increment course ID and update storage **after** using it
             self.next_course_id.write(course_id + 1);
-
-            let total_course = self.total_courses.read();
-            self.total_courses.write(total_course + 1);
+            self.total_courses.write(self.total_courses.read() + 1);
 
             course_id
         }

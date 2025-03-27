@@ -205,21 +205,18 @@ pub mod SkillNet {
         fn process_course_payment(
             ref self: ContractState, course_id: u256, student: ContractAddress, amount: u256,
         ) -> bool {
-            // Verify course exists and get details
             let course = self.courses.read(course_id);
             assert(course.id == course_id, COURSE_NOT_FOUND);
             assert(!course.is_free, COURSE_IS_FREE);
             assert(amount >= course.price, INSUFFICIENT_PAYMENT);
 
-            // Calculate protocol fee and tutor amount
-            let fee_amount = amount * self.protocol_fee.read() / 10000;
+            // 10% protocol fee for paid courses (1000 basis points = 10%)
+            let fee_amount = (amount * self.protocol_fee.read()) / 10000_u256;
             let tutor_amount = amount - fee_amount;
 
-            // Get payment contract and process transfers
-            let _payment_contract = self.payment_contract.read();
             let skillnet_wallet = self.skillnet_wallet.read();
 
-            // Transfer fee to protocol wallet
+            // Transfer 10% to protocol wallet
             let fee_success = self.process_payment(student, skillnet_wallet, fee_amount);
             assert(fee_success, FEE_TRANSFER_FAILED);
 
@@ -227,8 +224,7 @@ pub mod SkillNet {
             let tutor_success = self.process_payment(student, course.tutor, tutor_amount);
             assert(tutor_success, TUTOR_PAYMENT_FAILED);
 
-            // Update revenue stats
-            self.total_revenue.write(self.total_revenue.read() + amount);
+            self.total_revenue.write(self.total_revenue.read() + fee_amount);
 
             true
         }

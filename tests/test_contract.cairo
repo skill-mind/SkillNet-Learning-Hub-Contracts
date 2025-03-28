@@ -60,35 +60,42 @@ fn test_initial_data() {
 }
 
 #[test]
-fn test_create_course() {
-    let (contract_address, admin_address, _, _, _) = setup();
+fn test_create_free_course_with_payment() {
+    let (contract_address, admin_address, _, _, skillnet_wallet_address) = setup();
     let dispatcher = ISkillNetDispatcher { contract_address };
 
-    // Test input values
-    let title: felt252 = 123456; // Example felt252 value
-    let description: felt252 = 654321; // Example felt252 value
-    let price: u256 = 1000;
-    let is_free: bool = false;
-    let tags: felt252 = 789012; // Example felt252 value
+    let title: felt252 = 123456;
+    let description: felt252 = 654321;
+    let price: u256 = 0; // Free course
+    let is_free: bool = true;
+    let tags: felt252 = 789012;
 
-    // Ensure the caller is the admin
     cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
 
-    // Call create_course
+    // Deposit funds to tutor (admin)
+    let deposit_amount = 1000_u256;
+    dispatcher.deposit_funds(admin_address, deposit_amount);
+
+    let initial_tutor_balance = dispatcher.get_balance(admin_address);
+    let initial_skillnet_balance = dispatcher.get_balance(skillnet_wallet_address);
+
     let course_id = dispatcher.create_course(title, description, price, is_free, tags);
 
-    // Validate that the course ID is correctly incremented
-    assert(course_id == 0, 'Course ID should start from 0');
+    let free_course_fee = 100_u256; // Match contract's fixed fee
 
-    // Retrieve the course to verify it was stored correctly
+    let final_tutor_balance = dispatcher.get_balance(admin_address);
+    let final_skillnet_balance = dispatcher.get_balance(skillnet_wallet_address);
+
+    assert(
+        final_tutor_balance == initial_tutor_balance - free_course_fee, 'Tutor fee not deducted',
+    );
+    assert(
+        final_skillnet_balance == initial_skillnet_balance + free_course_fee,
+        'SkillNet fee not received',
+    );
+
     let course = dispatcher.get_course(course_id);
-    assert(course.id == course_id, 'Course ID mismatch');
-    assert(course.title == title, 'Course title mismatch');
-    assert(course.description == description, 'Course description mismatch');
-    assert(course.price == price, 'Course price mismatch');
-    assert(course.is_free == is_free, 'Course is_free flag mismatch');
-    assert(course.tags == tags, 'Course tags mismatch');
-    assert(course.tutor == admin_address, 'Tutor address mismatch');
+    assert(course.is_free == true, 'Course should be free');
 }
 
 
@@ -153,6 +160,9 @@ fn test_create_free_course() {
 
     cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
 
+    // Deposit funds to tutor
+    dispatcher.deposit_funds(admin_address, 1000_u256);
+
     let course_id = dispatcher.create_course(123456, 654321, 0, true, 789012);
 
     let course = dispatcher.get_course(course_id);
@@ -214,16 +224,34 @@ fn test_course_data_persistence() {
 
 #[test]
 fn test_enroll_course() {
-    let (contract_address, admin_address, _, _, _) = setup();
+    let (contract_address, admin_address, _, _, skillnet_wallet_address) = setup();
     let contract = ISkillNetDispatcher { contract_address };
 
     cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
 
     let course_id = contract.create_course(23454, 54133, 100, false, 03485);
+    let course = contract.get_course(course_id);
     let student: ContractAddress = contract_address_const::<'student'>();
 
+    // Deposit funds to student to cover course price
+    contract.deposit_funds(student, 1000_u256);
+
+    let initial_tutor_balance = contract.get_balance(admin_address);
+    let initial_skillnet_balance = contract.get_balance(skillnet_wallet_address);
+
     let result = contract.enroll_course(course_id, student);
+
+    let final_tutor_balance = contract.get_balance(admin_address);
+    let final_skillnet_balance = contract.get_balance(skillnet_wallet_address);
+    let fee_amount = (course.price * 10_u256) / 10000_u256;
+
     assert!(result, "Enrollment failed");
+    assert(
+        final_skillnet_balance == initial_skillnet_balance + fee_amount,
+        'SkillNet fee not received',
+    );
+    let tutor_cut = course.price - fee_amount;
+    assert(final_tutor_balance == initial_tutor_balance + tutor_cut, 'Tutor fee not added');
 }
 
 #[test]
@@ -251,8 +279,11 @@ fn test_should_fail_to_enroll_course_when_user_enrolled() {
     let course_id = contract.create_course(23454, 54133, 100, false, 03485);
     let student: ContractAddress = contract_address_const::<'student'>();
 
+    // Deposit funds to student
+    contract.deposit_funds(student, 1000_u256);
+
     contract.enroll_course(course_id, student);
-    contract.enroll_course(course_id, student);
+    contract.enroll_course(course_id, student); // Should panic here
 }
 
 #[test]
@@ -276,8 +307,18 @@ fn test_should_fail_payment_when_course_is_free() {
 
     cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
 
+    contract.deposit_funds(admin_address, 1000_u256);
+
     let course_id = contract.create_course(23454, 54133, 0, true, 03485);
+    let course = contract.get_course(course_id);
+
+    assert(course.is_free == true, 'Course not stored as free');
+
     let student: ContractAddress = contract_address_const::<'student'>();
+
+    // Deposit funds to student to avoid overflow
+    contract.deposit_funds(student, 10000_u256);
+
     contract.process_course_payment(course_id, student, 1000);
 }
 

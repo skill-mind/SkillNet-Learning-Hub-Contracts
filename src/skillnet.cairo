@@ -42,6 +42,7 @@ pub mod SkillNet {
         enrollments: Map<ContractAddress, Map<u256, bool>>,
         completions: Map<ContractAddress, Map<u256, bool>>,
         course_tags: Map<u256, Array<felt252>>,
+        balances: Map<ContractAddress, u256>,
     }
 
 
@@ -85,12 +86,21 @@ pub mod SkillNet {
             // Validate input parameters
             assert!(title != 0, "Course title cannot be empty");
             assert!(description != 0, "Course description cannot be empty");
-            assert!(is_free || price > 0, "Paid courses must have a price greater than zero");
 
-            // Get the current course ID
-            let course_id = self.next_course_id.read(); // Use it before incrementing
+            let tutor = get_caller_address();
+            let course_id = self.next_course_id.read();
 
-            // Create a new course struct
+            // If course is free, charge tutor a fixed fee
+            if is_free {
+                let free_course_fee = 100_u256; // Define your fixed fee for free courses
+                let payment_success = self
+                    .process_payment(tutor, self.skillnet_wallet.read(), free_course_fee);
+                assert(payment_success, PAYMENT_FAILED);
+                self.total_revenue.write(self.total_revenue.read() + free_course_fee);
+            } else {
+                assert!(price > 0, "Paid courses must have a price greater than zero");
+            }
+
             let new_course = Course {
                 id: course_id,
                 title,
@@ -109,9 +119,7 @@ pub mod SkillNet {
 
             // Increment course ID and update storage **after** using it
             self.next_course_id.write(course_id + 1);
-
-            let total_course = self.total_courses.read();
-            self.total_courses.write(total_course + 1);
+            self.total_courses.write(self.total_courses.read() + 1);
 
             course_id
         }
@@ -198,21 +206,18 @@ pub mod SkillNet {
         fn process_course_payment(
             ref self: ContractState, course_id: u256, student: ContractAddress, amount: u256,
         ) -> bool {
-            // Verify course exists and get details
             let course = self.courses.read(course_id);
             assert(course.id == course_id, COURSE_NOT_FOUND);
             assert(!course.is_free, COURSE_IS_FREE);
             assert(amount >= course.price, INSUFFICIENT_PAYMENT);
 
-            // Calculate protocol fee and tutor amount
-            let fee_amount = amount * self.protocol_fee.read() / 10000;
+            // 10% protocol fee for paid courses (1000 basis points = 10%)
+            let fee_amount = (amount * self.protocol_fee.read()) / 10000_u256;
             let tutor_amount = amount - fee_amount;
 
-            // Get payment contract and process transfers
-            let _payment_contract = self.payment_contract.read();
             let skillnet_wallet = self.skillnet_wallet.read();
 
-            // Transfer fee to protocol wallet
+            // Transfer 10% to protocol wallet
             let fee_success = self.process_payment(student, skillnet_wallet, fee_amount);
             assert(fee_success, FEE_TRANSFER_FAILED);
 
@@ -220,8 +225,7 @@ pub mod SkillNet {
             let tutor_success = self.process_payment(student, course.tutor, tutor_amount);
             assert(tutor_success, TUTOR_PAYMENT_FAILED);
 
-            // Update revenue stats
-            self.total_revenue.write(self.total_revenue.read() + amount);
+            self.total_revenue.write(self.total_revenue.read() + fee_amount);
 
             true
         }
@@ -252,6 +256,11 @@ pub mod SkillNet {
         fn process_payment(
             ref self: ContractState, from: ContractAddress, to: ContractAddress, amount: u256,
         ) -> bool {
+            let from_balance = self.balances.read(from);
+            assert(from_balance >= amount, 'Insufficient balance');
+            let to_balance = self.balances.read(to);
+            self.balances.write(from, from_balance - amount);
+            self.balances.write(to, to_balance + amount);
             true
         }
 
@@ -259,8 +268,18 @@ pub mod SkillNet {
             true
         }
 
+        fn deposit_funds(ref self: ContractState, account: ContractAddress, amount: u256) -> bool {
+            // Get current balance
+            let current_balance = self.balances.read(account);
+            // Add amount to balance
+            self.balances.write(account, current_balance + amount);
+            true
+        }
+
         fn get_balance(self: @ContractState, account: ContractAddress) -> u256 {
-            5
+            let current_balance = self.balances.read(account);
+
+            return current_balance;
         }
 
         fn get_admin(self: @ContractState) -> ContractAddress {

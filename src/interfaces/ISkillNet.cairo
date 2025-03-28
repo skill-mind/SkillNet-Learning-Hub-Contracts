@@ -71,6 +71,8 @@ pub trait ISkillNet<TContractState> {
 
     fn withdraw_funds(ref self: TContractState, account: ContractAddress, amount: u256) -> bool;
 
+    fn deposit_funds(ref self: TContractState, account: ContractAddress, amount: u256) -> bool;
+
     fn get_balance(self: @TContractState, account: ContractAddress) -> u256;
 
     // Platform Info

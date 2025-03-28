@@ -42,6 +42,8 @@ pub mod SkillNet {
         enrollments: Map<ContractAddress, Map<u256, bool>>,
         completions: Map<ContractAddress, Map<u256, bool>>,
         course_tags: Map<u256, Array<felt252>>,
+
+        balances: Map<ContractAddress, u256>,
     }
 
 
@@ -255,6 +257,11 @@ pub mod SkillNet {
         fn process_payment(
             ref self: ContractState, from: ContractAddress, to: ContractAddress, amount: u256,
         ) -> bool {
+            let from_balance = self.balances.read(from);
+            assert(from_balance >= amount, 'Insufficient balance');
+            let to_balance = self.balances.read(to);
+            self.balances.write(from, from_balance - amount);
+            self.balances.write(to, to_balance + amount);
             true
         }
 
@@ -262,8 +269,18 @@ pub mod SkillNet {
             true
         }
 
+        fn deposit_funds(ref self: ContractState, account: ContractAddress, amount: u256) -> bool {
+            // Get current balance
+            let current_balance = self.balances.read(account);
+            // Add amount to balance
+            self.balances.write(account, current_balance + amount);
+            true
+        }
+
         fn get_balance(self: @ContractState, account: ContractAddress) -> u256 {
-            5
+            let current_balance = self.balances.read(account);
+
+            return current_balance;
         }
 
         fn get_admin(self: @ContractState) -> ContractAddress {

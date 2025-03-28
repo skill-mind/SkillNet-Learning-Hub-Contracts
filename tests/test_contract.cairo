@@ -86,8 +86,13 @@ fn test_create_free_course_with_payment() {
     let final_tutor_balance = dispatcher.get_balance(admin_address);
     let final_skillnet_balance = dispatcher.get_balance(skillnet_wallet_address);
 
-    assert(final_tutor_balance == initial_tutor_balance - free_course_fee, 'Tutor fee not deducted');
-    assert(final_skillnet_balance == initial_skillnet_balance + free_course_fee, 'SkillNet fee not received');
+    assert(
+        final_tutor_balance == initial_tutor_balance - free_course_fee, 'Tutor fee not deducted',
+    );
+    assert(
+        final_skillnet_balance == initial_skillnet_balance + free_course_fee,
+        'SkillNet fee not received',
+    );
 
     let course = dispatcher.get_course(course_id);
     assert(course.is_free == true, 'Course should be free');
@@ -241,7 +246,10 @@ fn test_enroll_course() {
     let fee_amount = (course.price * 10_u256) / 10000_u256;
 
     assert!(result, "Enrollment failed");
-    assert(final_skillnet_balance == initial_skillnet_balance + fee_amount, 'SkillNet fee not received');
+    assert(
+        final_skillnet_balance == initial_skillnet_balance + fee_amount,
+        'SkillNet fee not received',
+    );
     let tutor_cut = course.price - fee_amount;
     assert(final_tutor_balance == initial_tutor_balance + tutor_cut, 'Tutor fee not added');
 }
@@ -303,7 +311,7 @@ fn test_should_fail_payment_when_course_is_free() {
 
     let course_id = contract.create_course(23454, 54133, 0, true, 03485);
     let course = contract.get_course(course_id);
-    
+
     assert(course.is_free == true, 'Course not stored as free');
 
     let student: ContractAddress = contract_address_const::<'student'>();

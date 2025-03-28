@@ -42,7 +42,6 @@ pub mod SkillNet {
         enrollments: Map<ContractAddress, Map<u256, bool>>,
         completions: Map<ContractAddress, Map<u256, bool>>,
         course_tags: Map<u256, Array<felt252>>,
-
         balances: Map<ContractAddress, u256>,
     }
 

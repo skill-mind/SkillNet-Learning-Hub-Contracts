@@ -219,19 +219,31 @@ fn test_course_data_persistence() {
 
 #[test]
 fn test_enroll_course() {
-    let (contract_address, admin_address, _, _, _) = setup();
+    let (contract_address, admin_address, _, _, skillnet_wallet_address) = setup();
     let contract = ISkillNetDispatcher { contract_address };
 
     cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
 
     let course_id = contract.create_course(23454, 54133, 100, false, 03485);
+    let course = contract.get_course(course_id);
     let student: ContractAddress = contract_address_const::<'student'>();
 
     // Deposit funds to student to cover course price
     contract.deposit_funds(student, 1000_u256);
 
+    let initial_tutor_balance = contract.get_balance(admin_address);
+    let initial_skillnet_balance = contract.get_balance(skillnet_wallet_address);
+
     let result = contract.enroll_course(course_id, student);
+
+    let final_tutor_balance = contract.get_balance(admin_address);
+    let final_skillnet_balance = contract.get_balance(skillnet_wallet_address);
+    let fee_amount = (course.price * 10_u256) / 10000_u256;
+
     assert!(result, "Enrollment failed");
+    assert(final_skillnet_balance == initial_skillnet_balance + fee_amount, 'SkillNet fee not received');
+    let tutor_cut = course.price - fee_amount;
+    assert(final_tutor_balance == initial_tutor_balance + tutor_cut, 'Tutor fee not added');
 }
 
 #[test]

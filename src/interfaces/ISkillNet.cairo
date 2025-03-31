@@ -41,6 +41,13 @@ pub trait ISkillNet<TContractState> {
     fn mint_completion_nft(
         ref self: TContractState, course_id: u256, student: ContractAddress,
     ) -> u256;
+    
+    fn upload_certificate_nft(
+        ref self: TContractState, 
+        course_id: u256, 
+        student: ContractAddress, 
+        certificate_title: felt252,
+    ) -> u256;
 
     // fn get_student_nfts(self: @TContractState, student: ContractAddress) -> Array<u256>;
 

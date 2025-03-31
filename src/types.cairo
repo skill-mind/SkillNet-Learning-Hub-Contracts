@@ -1,7 +1,8 @@
 use starknet::ContractAddress;
+use starknet::storage::Vec;
 
 /// @notice Struct containing all data for a single stream
-#[derive(Drop, Serde, starknet::Store)]
+#[derive(Drop, Serde, starknet::Store, Copy)]
 pub struct Course {
     pub id: u256,
     pub title: felt252,
@@ -15,21 +16,21 @@ pub struct Course {
     pub students_id: u256,
 }
 
-#[derive(Drop, Serde)]
+#[derive(Drop, Serde, starknet::Store, Copy)]
 pub struct StudentCourses {
-    pub enrolled_courses: Array<u256>,
-    pub completed_courses: Array<u256>,
-    pub nft_certificates: Array<u256>,
+    pub enrolled_courses_count: u256,
+    pub completed_courses_count: u256,
+    pub nft_certificates_count: u256,
 }
 
-#[derive(Drop, Serde)]
+#[derive(Drop, Serde, starknet::Store, Copy)]
 pub struct TutorCourses {
-    pub created_courses: Array<u256>,
+    pub created_courses_count: u256,
     pub total_revenue: u256,
     pub available_revenue: u256,
 }
 
-#[derive(Drop, Serde)]
+#[derive(Drop, Serde, starknet::Store, Copy)]
 pub struct CourseMetadata {
     pub course_id: u256,
     pub course_title: felt252,

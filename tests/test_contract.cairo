@@ -1,6 +1,7 @@
 use skillnet_contract::interfaces::ISkillNet::{ISkillNetDispatcher, ISkillNetDispatcherTrait};
 use snforge_std::{CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare};
 use starknet::{ContractAddress, contract_address_const};
+use skillnet_contract::types::CourseMetadata;
 
 
 fn setup() -> (
@@ -364,11 +365,11 @@ fn test_upload_certificate_nft() {
     let token_id = contract.upload_certificate_nft(course_id, student, certificate_title);
 
     // Verify token ID is returned
-    assert(token_id == 100, 'Incorrect token ID');
+    assert(token_id == 0, 'Incorrect token ID');
 
     // Verify ownership (in a real test, we'd check ownership via the NFT contract)
     let owner = contract.owner_of(token_id);
-    assert(owner == admin_address, 'Incorrect token owner');
+    assert(owner == student, 'Incorrect token owner');
 }
 
 #[test]
@@ -431,5 +432,220 @@ fn test_upload_certificate_nft_course_not_completed() {
 
     // Try to upload certificate without completing the course
     contract.upload_certificate_nft(course_id, student, 'Certificate');
+}
+
+#[test]
+fn test_transfer_nft_certificate() {
+    // Setup contract and addresses
+    let (contract_address, admin_address, _, _, _) = setup();
+    let contract = ISkillNetDispatcher { contract_address };
+
+    // Create a course
+    cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
+    let course_id = contract.create_course(123456, 654321, 100, false, 789012);
+
+    // Setup student addresses
+    let student1: ContractAddress = contract_address_const::<'student1'>();
+    let student2: ContractAddress = contract_address_const::<'student2'>();
+
+    // Fund student1 and enroll them in the course
+    contract.deposit_funds(student1, 1000_u256);
+    contract.enroll_course(course_id, student1);
+
+    // Mark the course as completed by student1
+    contract.complete_course(course_id, student1);
+
+    // Create certificate title
+    let certificate_title: felt252 = 'Completion Certificate';
+
+    // Upload certificate as NFT (admin is the tutor in this case)
+    let token_id = contract.upload_certificate_nft(course_id, student1, certificate_title);
+
+    // Verify initial ownership
+    let initial_owner = contract.owner_of(token_id);
+    assert(initial_owner == student1, 'Wrong initial owner');
+
+    // Transfer NFT from student1 to student2
+    cheat_caller_address(contract_address, student1, CheatSpan::Indefinite);
+    let transfer_result = contract.transfer(student1, student2, token_id);
+    assert(transfer_result, 'Transfer failed');
+
+    // Verify new ownership
+    let new_owner = contract.owner_of(token_id);
+    assert(new_owner == student2, 'Wrong new owner');
+}
+
+#[test]
+#[should_panic(expected: 'Token not found')]
+fn test_transfer_nft_not_owner() {
+    // Setup contract and addresses
+    let (contract_address, admin_address, _, _, _) = setup();
+    let contract = ISkillNetDispatcher { contract_address };
+
+    // Create a course
+    cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
+    let course_id = contract.create_course(123456, 654321, 100, false, 789012);
+
+    // Setup student addresses
+    let student1: ContractAddress = contract_address_const::<'student1'>();
+    let student2: ContractAddress = contract_address_const::<'student2'>();
+    let student3: ContractAddress = contract_address_const::<'student3'>();
+
+    // Fund student1 and enroll them in the course
+    contract.deposit_funds(student1, 1000_u256);
+    contract.enroll_course(course_id, student1);
+
+    // Mark the course as completed by student1
+    contract.complete_course(course_id, student1);
+
+    // Upload certificate as NFT
+    let _token_id = contract.upload_certificate_nft(course_id, student1, 'Certificate');
+
+    // Try to transfer NFT from student2 (who doesn't own it) to student3
+    cheat_caller_address(contract_address, student2, CheatSpan::Indefinite);
+    contract.transfer(student2, student3, 0);
+}
+
+#[test]
+#[should_panic(expected: 'Token not found')]
+fn test_transfer_nft_not_found() {
+    // Setup contract and addresses
+    let (contract_address, admin_address, _, _, _) = setup();
+    let contract = ISkillNetDispatcher { contract_address };
+
+    // Create a course
+    cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
+    let course_id = contract.create_course(123456, 654321, 100, false, 789012);
+
+    // Setup student addresses
+    let student1: ContractAddress = contract_address_const::<'student1'>();
+    let student2: ContractAddress = contract_address_const::<'student2'>();
+
+    // Fund student1 and enroll them in the course
+    contract.deposit_funds(student1, 1000_u256);
+    contract.enroll_course(course_id, student1);
+
+    // Mark the course as completed by student1
+    contract.complete_course(course_id, student1);
+
+    // Upload certificate as NFT
+    let _token_id = contract.upload_certificate_nft(course_id, student1, 'Certificate');
+
+    // Try to transfer a non-existent token (using a completely different token ID)
+    cheat_caller_address(contract_address, student1, CheatSpan::Indefinite);
+    contract.transfer(student1, student2, 999999);
+}
+
+#[test]
+fn test_transfer_multiple_nfts() {
+    // Setup contract and addresses
+    let (contract_address, admin_address, _, _, _) = setup();
+    let contract = ISkillNetDispatcher { contract_address };
+
+    // Create a course
+    cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
+    let course_id = contract.create_course(123456, 654321, 100, false, 789012);
+
+    // Setup student addresses
+    let student1: ContractAddress = contract_address_const::<'student1'>();
+    let student2: ContractAddress = contract_address_const::<'student2'>();
+
+    // Fund student1 and enroll them in the course
+    contract.deposit_funds(student1, 1000_u256);
+    contract.enroll_course(course_id, student1);
+
+    // Mark the course as completed by student1
+    contract.complete_course(course_id, student1);
+
+    // Upload multiple certificates as NFTs
+    let token_id1 = contract.upload_certificate_nft(course_id, student1, 'Certificate 1');
+    let token_id2 = contract.upload_certificate_nft(course_id, student1, 'Certificate 2');
+
+    // Transfer first NFT
+    cheat_caller_address(contract_address, student1, CheatSpan::Indefinite);
+    let transfer_result1 = contract.transfer(student1, student2, token_id1);
+    assert(transfer_result1, 'First transfer failed');
+
+    // Verify ownership of first NFT
+    let owner1 = contract.owner_of(token_id1);
+    assert(owner1 == student2, 'Wrong NFT1 owner');
+
+    // Transfer second NFT
+    let transfer_result2 = contract.transfer(student1, student2, token_id2);
+    assert(transfer_result2, 'Second transfer failed');
+
+    // Verify ownership of second NFT
+    let owner2 = contract.owner_of(token_id2);
+    assert(owner2 == student2, 'Wrong NFT2 owner');
+}
+
+#[test]
+fn test_mint_nft() {
+    // Setup contract and addresses
+    let (contract_address, admin_address, _, _, _) = setup();
+    let contract = ISkillNetDispatcher { contract_address };
+
+    // Setup student address
+    let student: ContractAddress = contract_address_const::<'student'>();
+
+    // Create metadata for the NFT
+    let metadata = CourseMetadata {
+        course_id: 1,
+        course_title: 'Test Course',
+        completion_date: 123456789,
+        student_address: student,
+        tutor_address: admin_address,
+    };
+
+    // Mint NFT to student
+    let token_id = contract.mint(student, 1, metadata);
+
+    // Verify token ID starts at 0
+    assert(token_id == 0, 'Incorrect token ID');
+
+    // Verify ownership
+    let owner = contract.owner_of(token_id);
+    assert(owner == student, 'Wrong token owner');
+}
+
+#[test]
+fn test_mint_multiple_nfts() {
+    // Setup contract and addresses
+    let (contract_address, admin_address, _, _, _) = setup();
+    let contract = ISkillNetDispatcher { contract_address };
+
+    // Setup student address
+    let student: ContractAddress = contract_address_const::<'student'>();
+
+    // Create metadata for the NFTs
+    let metadata1 = CourseMetadata {
+        course_id: 1,
+        course_title: 'Test Course 1',
+        completion_date: 123456789,
+        student_address: student,
+        tutor_address: admin_address,
+    };
+
+    let metadata2 = CourseMetadata {
+        course_id: 2,
+        course_title: 'Test Course 2',
+        completion_date: 123456790,
+        student_address: student,
+        tutor_address: admin_address,
+    };
+
+    // Mint two NFTs to student
+    let token_id1 = contract.mint(student, 1, metadata1);
+    let token_id2 = contract.mint(student, 2, metadata2);
+
+    // Verify token IDs are sequential
+    assert(token_id1 == 0, 'First token ID incorrect');
+    assert(token_id2 == 1, 'Second token ID incorrect');
+
+    // Verify ownership of both NFTs
+    let owner1 = contract.owner_of(token_id1);
+    let owner2 = contract.owner_of(token_id2);
+    assert(owner1 == student, 'Wrong owner for first NFT');
+    assert(owner2 == student, 'Wrong owner for second NFT');
 }
 

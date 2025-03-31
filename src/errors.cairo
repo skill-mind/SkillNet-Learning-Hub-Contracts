@@ -18,3 +18,7 @@ pub const COURSE_NOT_COMPLETED: felt252 = 'Course not completed by student';
 pub const NOT_COURSE_TUTOR: felt252 = 'Not the course tutor';
 /// Thrown when trying to complete a course while not enrolled
 pub const STUDENT_NOT_ENROLLED: felt252 = 'Student not enrolled';
+/// Thrown when attempting to transfer a token not owned by the sender
+pub const NOT_TOKEN_OWNER: felt252 = 'Not token owner';
+/// Thrown when attempting to transfer a token that doesn't exist in the sender's certificates
+pub const TOKEN_NOT_FOUND: felt252 = 'Token not found';

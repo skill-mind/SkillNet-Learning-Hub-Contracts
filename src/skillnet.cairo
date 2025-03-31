@@ -6,8 +6,8 @@ pub mod SkillNet {
     };
     use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
     use crate::errors::{
-        COURSE_IS_FREE, COURSE_NOT_FOUND, COURSE_NOT_COMPLETED, FEE_TRANSFER_FAILED, 
-        INSUFFICIENT_PAYMENT, NOT_COURSE_TUTOR, PAYMENT_FAILED, TUTOR_PAYMENT_FAILED, 
+        COURSE_IS_FREE, COURSE_NOT_FOUND, COURSE_NOT_COMPLETED, FEE_TRANSFER_FAILED,
+        INSUFFICIENT_PAYMENT, NOT_COURSE_TUTOR, PAYMENT_FAILED, TUTOR_PAYMENT_FAILED,
         USER_ALREADY_ENROLLED,
     };
     use crate::interfaces::ISkillNet::ISkillNet;
@@ -211,32 +211,32 @@ pub mod SkillNet {
             79
         }
 
-        /// @notice Allows a tutor to upload a certificate as an NFT for a student who completed their course
-        /// @dev Only the course tutor can issue certificates for their own courses
+        /// @notice Allows a tutor to upload a certificate as an NFT for a student who completed
+        /// their course @dev Only the course tutor can issue certificates for their own courses
         /// @param course_id The ID of the course the certificate is for
         /// @param student The address of the student receiving the certificate
         /// @param certificate_title The title to be displayed on the certificate
         /// @return token_id The unique ID of the minted NFT certificate
         fn upload_certificate_nft(
-            ref self: ContractState, 
-            course_id: u256, 
-            student: ContractAddress, 
+            ref self: ContractState,
+            course_id: u256,
+            student: ContractAddress,
             certificate_title: felt252,
         ) -> u256 {
             // Get the course from storage
             let course = self.courses.read(course_id);
-            
+
             // Ensure the course exists
             assert(course.id == course_id, COURSE_NOT_FOUND);
-            
+
             // Ensure the caller is the tutor of the course
             let caller = get_caller_address();
             assert(caller == course.tutor, NOT_COURSE_TUTOR);
-            
+
             // Check if the student has completed the course
             let is_completed = self.completions.entry(student).entry(course_id).read();
             assert(is_completed, COURSE_NOT_COMPLETED);
-            
+
             // Create certificate metadata
             let metadata = CourseMetadata {
                 course_id,
@@ -245,10 +245,10 @@ pub mod SkillNet {
                 student_address: student,
                 tutor_address: caller,
             };
-            
+
             // Mint the NFT certificate
             let token_id = self.mint(student, course_id, metadata);
-            
+
             token_id
         }
 

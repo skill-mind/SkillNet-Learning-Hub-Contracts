@@ -343,29 +343,29 @@ fn test_upload_certificate_nft() {
 
     // Create a course
     cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
-    
+
     // Create a paid course
     let course_id = contract.create_course(123456, 654321, 100, false, 789012);
-    
+
     // Setup student address
     let student: ContractAddress = contract_address_const::<'student'>();
-    
+
     // Fund the student and enroll them in the course
     contract.deposit_funds(student, 1000_u256);
     contract.enroll_course(course_id, student);
-    
+
     // Mark the course as completed by the student
     contract.complete_course(course_id, student);
-    
+
     // Create certificate title
     let certificate_title: felt252 = 'Completion Certificate';
-    
+
     // Upload certificate as NFT (admin is the tutor in this case)
     let token_id = contract.upload_certificate_nft(course_id, student, certificate_title);
-    
+
     // Verify token ID is returned
     assert(token_id == 100, 'Incorrect token ID');
-    
+
     // Verify ownership (in a real test, we'd check ownership via the NFT contract)
     let owner = contract.owner_of(token_id);
     assert(owner == admin_address, 'Incorrect token owner');
@@ -377,10 +377,10 @@ fn test_upload_certificate_nft_course_not_found() {
     // Setup contract and addresses
     let (contract_address, admin_address, _, _, _) = setup();
     let contract = ISkillNetDispatcher { contract_address };
-    
+
     // Create a student address
     let student: ContractAddress = contract_address_const::<'student'>();
-    
+
     // Try to upload certificate for non-existent course
     cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
     contract.upload_certificate_nft(999, student, 'Certificate');
@@ -392,20 +392,20 @@ fn test_upload_certificate_nft_not_tutor() {
     // Setup contract and addresses
     let (contract_address, admin_address, _, _, _) = setup();
     let contract = ISkillNetDispatcher { contract_address };
-    
+
     // Create a course
     cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
     let course_id = contract.create_course(123456, 654321, 100, false, 789012);
-    
+
     // Setup student and another user addresses
     let student: ContractAddress = contract_address_const::<'student'>();
     let other_user: ContractAddress = contract_address_const::<'other_user'>();
-    
+
     // Fund the student and enroll them in the course
     contract.deposit_funds(student, 1000_u256);
     contract.enroll_course(course_id, student);
     contract.complete_course(course_id, student);
-    
+
     // Try to upload certificate as someone who isn't the tutor
     cheat_caller_address(contract_address, other_user, CheatSpan::Indefinite);
     contract.upload_certificate_nft(course_id, student, 'Certificate');
@@ -417,18 +417,18 @@ fn test_upload_certificate_nft_course_not_completed() {
     // Setup contract and addresses
     let (contract_address, admin_address, _, _, _) = setup();
     let contract = ISkillNetDispatcher { contract_address };
-    
+
     // Create a course
     cheat_caller_address(contract_address, admin_address, CheatSpan::Indefinite);
     let course_id = contract.create_course(123456, 654321, 100, false, 789012);
-    
+
     // Setup student address
     let student: ContractAddress = contract_address_const::<'student'>();
-    
+
     // Fund the student and enroll them in the course
     contract.deposit_funds(student, 1000_u256);
     contract.enroll_course(course_id, student);
-    
+
     // Try to upload certificate without completing the course
     contract.upload_certificate_nft(course_id, student, 'Certificate');
 }

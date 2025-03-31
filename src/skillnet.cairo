@@ -4,15 +4,18 @@ pub mod SkillNet {
         Map, MutableVecTrait, StorageMapReadAccess, StorageMapWriteAccess, StoragePathEntry,
         StoragePointerReadAccess, StoragePointerWriteAccess, Vec, VecTrait,
     };
-    use starknet::{ContractAddress, get_block_timestamp, get_caller_address};
+    use starknet::{
+        ContractAddress, get_block_timestamp, get_caller_address, contract_address_const,
+    };
+    use core::array::ArrayTrait;
+    use core::option::OptionTrait;
     use crate::errors::{
         COURSE_IS_FREE, COURSE_NOT_FOUND, COURSE_NOT_COMPLETED, FEE_TRANSFER_FAILED,
         INSUFFICIENT_PAYMENT, NOT_COURSE_TUTOR, PAYMENT_FAILED, TUTOR_PAYMENT_FAILED,
-        USER_ALREADY_ENROLLED,
+        USER_ALREADY_ENROLLED, NOT_TOKEN_OWNER, TOKEN_NOT_FOUND,
     };
     use crate::interfaces::ISkillNet::ISkillNet;
     use crate::types::{Course, CourseMetadata, StudentCourses, TutorCourses};
-
 
     #[storage]
     struct Storage {
@@ -44,6 +47,15 @@ pub mod SkillNet {
         completions: Map<ContractAddress, Map<u256, bool>>,
         course_tags: Map<u256, Array<felt252>>,
         balances: Map<ContractAddress, u256>,
+        // NFT Management
+        next_token_id: u256,
+        token_owners: Map<u256, ContractAddress>,
+        token_metadata: Map<u256, CourseMetadata>,
+        // Array storage using maps
+        student_enrolled_courses: Map<ContractAddress, Map<u256, u256>>,
+        student_completed_courses: Map<ContractAddress, Map<u256, u256>>,
+        student_nft_certificates: Map<ContractAddress, Map<u256, u256>>,
+        tutor_created_courses: Map<ContractAddress, Map<u256, u256>>,
     }
 
 
@@ -291,20 +303,92 @@ pub mod SkillNet {
         fn mint(
             ref self: ContractState, to: ContractAddress, course_id: u256, metadata: CourseMetadata,
         ) -> u256 {
-            100
+            // Get the next token ID and increment it
+            let token_id = self.next_token_id.read();
+            self.next_token_id.write(token_id + 1);
+
+            // Store the token owner
+            self.token_owners.write(token_id, to);
+
+            // Store the token metadata
+            self.token_metadata.write(token_id, metadata);
+
+            // Update student's NFT certificates count and storage
+            let mut student_courses = self.students.entry(to).read();
+            student_courses.nft_certificates_count += 1;
+            self.students.entry(to).write(student_courses);
+
+            // Store the NFT certificate in the map
+            self
+                .student_nft_certificates
+                .entry(to)
+                .entry(student_courses.nft_certificates_count - 1)
+                .write(token_id);
+
+            token_id
         }
 
         fn transfer(
             ref self: ContractState, from: ContractAddress, to: ContractAddress, token_id: u256,
         ) -> bool {
+            // First check if token exists in sender's certificates
+            let mut from_courses = self.students.entry(from).read();
+            let mut found = false;
+            let mut i: u256 = 0;
+            loop {
+                if i >= from_courses.nft_certificates_count {
+                    break;
+                }
+                let stored_token_id = self.student_nft_certificates.entry(from).entry(i).read();
+                if stored_token_id == token_id {
+                    found = true;
+                    break;
+                }
+                i += 1;
+            };
+            assert(found, TOKEN_NOT_FOUND);
+
+            // Then verify sender owns the token
+            let sender = starknet::get_caller_address();
+            let owner = self.token_owners.read(token_id);
+            assert(owner == sender, NOT_TOKEN_OWNER);
+
+            // Update NFT certificates for both addresses
+            let mut to_courses = self.students.entry(to).read();
+
+            // Remove token from sender's certificates
+            if i < from_courses.nft_certificates_count - 1 {
+                let last_token = self
+                    .student_nft_certificates
+                    .entry(from)
+                    .entry(from_courses.nft_certificates_count - 1)
+                    .read();
+                self.student_nft_certificates.entry(from).entry(i).write(last_token);
+            }
+
+            // Update token ownership
+            self.token_owners.write(token_id, to);
+
+            // Decrement sender's count
+            from_courses.nft_certificates_count -= 1;
+            self.students.entry(from).write(from_courses);
+
+            // Add token to recipient's certificates
+            to_courses.nft_certificates_count += 1;
+            self.students.entry(to).write(to_courses);
+            self
+                .student_nft_certificates
+                .entry(to)
+                .entry(to_courses.nft_certificates_count - 1)
+                .write(token_id);
+
             true
         }
 
         fn owner_of(self: @ContractState, token_id: u256) -> ContractAddress {
-            get_caller_address()
+            self.token_owners.read(token_id)
         }
 
-        // fn get_metadata(self: @ContractState, token_id: u256) -> CourseMetadata;
         fn process_payment(
             ref self: ContractState, from: ContractAddress, to: ContractAddress, amount: u256,
         ) -> bool {
